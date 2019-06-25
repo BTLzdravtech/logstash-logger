@@ -9,6 +9,9 @@ module LogStashLogger
         super
 
         @ssl_certificate = opts[:ssl_certificate]
+        @ssl_key = opts[:ssl_key]
+        @ssl_passphrase = opts[:ssl_passphrase]
+        @ssl_ca = opts[:ssl_ca]
         @ssl_context = opts[:ssl_context]
         @use_ssl = !!(@ssl_certificate || opts[:ssl_context])
         @use_ssl = opts[:ssl_enable] if opts.has_key? :ssl_enable
@@ -59,9 +62,25 @@ module LogStashLogger
       end
 
       def certificate_context
-        return unless @ssl_certificate
+        return unless certificate
         @certificate_context ||= OpenSSL::SSL::SSLContext.new.tap do |ctx|
-          ctx.set_params(cert: @ssl_certificate)
+          ctx.set_params(cert: certificate)
+          ctx.set_params(key: certificate_key) if @ssl_key
+          ctx.set_params(ca_file: @ssl_ca.to_s) if @ssl_ca
+        end
+      end
+
+      def certificate
+        return unless @ssl_certificate
+        @certificate ||= OpenSSL::X509::Certificate.new(::File.open(@ssl_certificate))
+      end
+
+      def certificate_key
+        return unless @ssl_key
+        if @ssl_passphrase
+          @certificate_key ||= OpenSSL::PKey::RSA.new(::File.open(@ssl_key), @ssl_passphrase)
+        else
+          @certificate_key ||= OpenSSL::PKey::RSA.new(::File.open(@ssl_key))
         end
       end
 
